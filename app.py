@@ -78,17 +78,21 @@ class AITokenBar(rumps.App):
                         continue
                     if result:
                         icon = _usage_icon(result)
-                        item.title = f"{icon} {p.name}: {result.percent:.0f}%  ({result.label()})"
+                        if result.unit == "(키 유효)":
+                            item.title = f"{icon} {p.name}: {result.label()}"
+                        else:
+                            item.title = f"{icon} {p.name}: {result.percent:.0f}%  ({result.label()})"
                     else:
                         item.title = f"❓ {p.name}: 조회 실패"
                 except RuntimeError as e:
                     item = self._menu_items.get(p.name)
                     if item:
                         item.title = f"⚠️ {p.name}: {e}"
-                except Exception:
+                except Exception as e:
+                    print(f"[{p.name}] 오류: {type(e).__name__}: {e}")
                     item = self._menu_items.get(p.name)
                     if item:
-                        item.title = f"⚠️ {p.name}: 오류"
+                        item.title = f"⚠️ {p.name}: {type(e).__name__}"
 
             self._update_title_icon()
 

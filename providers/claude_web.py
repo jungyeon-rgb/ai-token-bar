@@ -21,7 +21,13 @@ class ClaudeWebProvider(BaseProvider):
             return None
 
         cookies = {"sessionKey": session_key}
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://claude.ai/",
+            "Origin": "https://claude.ai",
+            "Accept": "application/json",
+        }
 
         try:
             # 1. 소속 org ID 조회
@@ -37,9 +43,9 @@ class ClaudeWebProvider(BaseProvider):
                 return None
             org_id = orgs[0]["uuid"]
 
-            # 2. 사용량 제한 조회
+            # 2. 사용량 조회
             resp = requests.get(
-                f"{self.BASE_URL}/organizations/{org_id}/limits",
+                f"{self.BASE_URL}/organizations/{org_id}/usage",
                 cookies=cookies,
                 headers=headers,
                 timeout=10,
@@ -47,16 +53,17 @@ class ClaudeWebProvider(BaseProvider):
             resp.raise_for_status()
             data = resp.json()
 
-            # 응답 구조: {"messages_remaining": N, "messages_limit": N} 형태 추정
-            # Claude Pro는 하루/주 단위 메시지 제한이 있음
-            limit = data.get("messages_limit") or data.get("limit")
-            remaining = data.get("messages_remaining") or data.get("remaining")
+            # utilization: 0~100 퍼센트 값
+            # seven_day가 주 단위 한도, five_hour가 단기 한도
+            seven_day = data.get("seven_day") or {}
+            five_hour = data.get("five_hour") or {}
 
-            if limit is None or remaining is None:
-                return None
+            seven_day_pct = seven_day.get("utilization") or 0.0
+            five_hour_pct = five_hour.get("utilization") or 0.0
 
-            used = limit - remaining
-            result = UsageResult(used=used, total=limit, unit="messages")
+            # 더 높은 쪽 기준으로 표시
+            utilization = max(seven_day_pct, five_hour_pct)
+            result = UsageResult(used=utilization, total=100.0, unit="%")
             self.last_usage = result
             return result
 
@@ -64,5 +71,6 @@ class ClaudeWebProvider(BaseProvider):
             if e.response is not None and e.response.status_code == 401:
                 raise RuntimeError("Claude.ai 세션 만료 — sessionKey를 갱신하세요") from e
             raise
-        except Exception:
+        except Exception as e:
+            print(f"[ClaudeWeb] {type(e).__name__}: {e}")
             return None

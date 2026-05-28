@@ -18,6 +18,10 @@ class UsageResult:
             return f"${self.used:.2f} / ${self.total:.2f}"
         if self.unit == "messages":
             return f"{int(self.used)} / {int(self.total)} 메시지"
+        if self.unit == "%":
+            return f"{self.used:.0f}% 사용"
+        if self.unit == "(키 유효)":
+            return "키 유효"
         return f"{int(self.used):,} / {int(self.total):,} {self.unit}"
 
 
