@@ -1,10 +1,10 @@
 """
-OpenAI API 사용량 (rate-limit 헤더 기반)
+ChatGPT Plus 구독 사용량 (chatgpt.com 세션 기반)
 
-ChatGPT Plus / OpenAI API 공통.
-일반 API key로 모델 목록 조회 시 응답 헤더에서 rate-limit 정보를 읽음.
-
-API key 발급: platform.openai.com → API keys
+세션 토큰 추출 방법:
+  1. chatgpt.com 로그인 후 DevTools → Application → Cookies
+  2. `__Secure-next-auth.session-token` 값 복사
+  3. config.yaml의 chatgpt_web.session_token에 입력
 """
 
 import requests
@@ -13,38 +13,67 @@ from .base import BaseProvider, UsageResult
 
 
 class ChatGPTWebProvider(BaseProvider):
-    name = "OpenAI"
-    PROBE_URL = "https://api.openai.com/v1/models"
+    name = "ChatGPT"
+    BASE_URL = "https://chatgpt.com/backend-api"
 
     def fetch(self) -> Optional[UsageResult]:
-        api_key = self.config.get("api_key", "")
-        if not api_key:
+        session_token = self.config.get("session_token", "")
+        if not session_token:
             return None
 
-        headers = {"Authorization": f"Bearer {api_key}"}
+        cookies = {"__Secure-next-auth.session-token": session_token}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://chatgpt.com/",
+            "Accept": "application/json",
+        }
 
         try:
-            resp = requests.get(self.PROBE_URL, headers=headers, timeout=10)
-            resp.raise_for_status()
+            # 세션으로 access token 획득
+            session_resp = requests.get(
+                "https://chatgpt.com/api/auth/session",
+                cookies=cookies,
+                headers=headers,
+                timeout=10,
+            )
+            session_resp.raise_for_status()
+            session_data = session_resp.json()
+            access_token = session_data.get("accessToken")
 
-            limit = int(resp.headers.get("x-ratelimit-limit-tokens", 0))
-            remaining = int(resp.headers.get("x-ratelimit-remaining-tokens", 0))
+            if not access_token:
+                print("[ChatGPT] accessToken 없음 — 세션 토큰을 확인하세요")
+                return None
 
-            if limit == 0:
-                # rate-limit 헤더 없는 경우 — key 유효 확인만 표시
-                result = UsageResult(used=0, total=1, unit="(키 유효)")
-                self.last_usage = result
-                return result
+            auth_headers = {**headers, "Authorization": f"Bearer {access_token}"}
 
-            used = limit - remaining
-            result = UsageResult(used=used, total=limit, unit="tokens/min")
-            self.last_usage = result
-            return result
+            # 계정 정보 및 사용량 조회
+            me_resp = requests.get(
+                f"{self.BASE_URL}/me",
+                headers=auth_headers,
+                timeout=10,
+            )
+            me_resp.raise_for_status()
+            print(f"[ChatGPT] me keys: {list(me_resp.json().keys())}")
+
+            # 구독/사용량 endpoint 탐색
+            for path in ["/accounts/check/v4-2023-04-27", "/usage", "/subscription"]:
+                r = requests.get(
+                    f"{self.BASE_URL}{path}",
+                    headers=auth_headers,
+                    timeout=10,
+                )
+                print(f"[ChatGPT] {path} → {r.status_code}")
+                if r.status_code == 200:
+                    data = r.json()
+                    print(f"[ChatGPT] {path} 응답: {data}")
+                    break
+
+            return None  # endpoint 확인 후 파싱 로직 추가 예정
 
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 401:
-                raise RuntimeError("OpenAI API key 인증 실패") from e
+                raise RuntimeError("ChatGPT 세션 만료 — session_token을 갱신하세요") from e
             raise
         except Exception as e:
-            print(f"[OpenAI] {type(e).__name__}: {e}")
+            print(f"[ChatGPT] {type(e).__name__}: {e}")
             return None

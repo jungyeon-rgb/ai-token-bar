@@ -42,8 +42,8 @@ class AITokenBar(rumps.App):
         if config.get("claude_web", {}).get("session_key"):
             self._providers.append(ClaudeWebProvider(config["claude_web"]))
 
-        if config.get("chatgpt", {}).get("api_key"):
-            self._providers.append(ChatGPTWebProvider(config["chatgpt"]))
+        if config.get("chatgpt_web", {}).get("session_token"):
+            self._providers.append(ChatGPTWebProvider(config["chatgpt_web"]))
 
         if config.get("anthropic_api", {}).get("api_key"):
             self._providers.append(AnthropicAPIProvider(config["anthropic_api"]))

@@ -1,19 +1,25 @@
 # ai-token-bar 설정 파일
 # 사용할 항목만 채우면 됩니다. 빈 항목은 자동 스킵됩니다.
 
-# ─── Claude.ai 구독 (웹 세션 기반) ───────────────────────────────────────
+# ─── Claude.ai 구독 사용량 ────────────────────────────────────────────────
 # 세션 키 추출: claude.ai 로그인 → DevTools → Application → Cookies → sessionKey
 claude_web:
   session_key: ""
 
-# ─── ChatGPT / OpenAI API 사용량 ─────────────────────────────────────────
-# API key: platform.openai.com → API keys
-# ※ ChatGPT Plus 구독 사용량이 아닌 OpenAI API 토큰 사용량 기준
-chatgpt:
+# ─── ChatGPT Plus 구독 사용량 ─────────────────────────────────────────────
+# 세션 토큰 추출: chatgpt.com 로그인 → DevTools → Application → Cookies
+#   → __Secure-next-auth.session-token 값 복사
+chatgpt_web:
+  session_token: ""
+
+# ─── Anthropic API key 유효성 확인 ────────────────────────────────────────
+# API key: console.anthropic.com → API Keys
+# ※ 월별 사용량 공개 API 없음 — 키 유효 여부만 표시
+anthropic_api:
   api_key: ""
 
-# ─── Anthropic API 사용량 (rate-limit 헤더 기반) ──────────────────────────
-# API key: console.anthropic.com → API Keys
-# ※ 조회 시 probe 요청 1회 발생 (claude-haiku, 토큰 최소 소모)
-anthropic_api:
+# ─── OpenAI API key 유효성 확인 ───────────────────────────────────────────
+# API key: platform.openai.com → API keys
+# ※ 월별 사용량은 Admin key 필요 — 일반 키는 유효 여부만 표시
+openai_api:
   api_key: ""
